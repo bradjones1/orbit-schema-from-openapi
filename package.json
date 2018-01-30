@@ -1,6 +1,6 @@
 {
   "name": "orbit-schema-from-openapi",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Generates an OrbitJS schema from an Open API definition set of JSON API resources",
   "author": "John Ferris <https://github.com/pixelwhip>",
   "main": "index.js",

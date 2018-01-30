@@ -1,13 +1,13 @@
+require('dotenv').config();
 const fs = require('fs');
 const OAuth = require('./lib/oauth');
 const axios = require('axios');
-require('dotenv').config();
 
-module.exports = class OrbitSchemaFromOpenApi {
+class OrbitSchemaFromOpenApi {
   /**
    * Fetches an OpenAPI definition of a JSON API resources and transforms it into ObritJS compliant schema.
    * @param {object} options
-   *   The configuration used to create a new instance of Waterwheel.
+   *   The configuration used to create a new instance of OrbitSchemaFromOpenApi.
    * @param {string} options.base
    *   The base URL.
    * @param {object} options.oauth
@@ -22,6 +22,16 @@ module.exports = class OrbitSchemaFromOpenApi {
    *   The resource owner username.
    * @param {string} options.oauth.password
    *   The resource owner password.
+   * @param {object} options.whitelist
+   *  An array of resource types to include.
+   * @param {string[]} options.whitelist.resources
+   *  An array of resource types to be included.
+   * @param {object} options.blacklist
+   *  Elements to be excluded.
+   * @param {string[]} options.blacklist.attributes
+   *  An array of attributes to be excluded.
+   * @param {string[]} options.blacklist.relationships
+   *  An array of relationships to be excluded.
    * @returns {promise}
    *   Returns a promise which resolves to the Orbit complient schema.
    */
@@ -35,6 +45,7 @@ module.exports = class OrbitSchemaFromOpenApi {
   generate() {
     return new Promise((resolve, reject) => {
       const convertToOrbit = this.convertToOrbit;
+      const options = this.options;
 
       this.oAuth.getToken()
         .then(() => {
@@ -49,7 +60,7 @@ module.exports = class OrbitSchemaFromOpenApi {
               }
             })
             .then(response => {
-              resolve(convertToOrbit(response.data))
+              resolve(convertToOrbit(response.data, options))
             })
             .catch(error => {
               console.log(error.stack);
@@ -87,16 +98,30 @@ module.exports = class OrbitSchemaFromOpenApi {
    * OrbitJS compliant model definition.
    * @param {Object} schema
    *  Open API compliant definition of a JSON API resource
+   * @param {object} options.whitelist
+   *  Elements to be included.
+   * @param {string[]} options.whitelist.resources
+   *  An array of resource types to be included.
+   * @param {object} options.blacklist
+   *  Elements to be excluded.
+   * @param {string[]} options.blacklist.attributes
+   *  An array of attributes to be excluded.
+   * @param {string[]} options.blacklist.relationships
+   *  An array of relationships to be excluded.
    * @returns {Object}
    *  OrbitJS compliant model definition of a resource.
    */
-  serialize(schema) {
+  serialize(schema, options) {
     let output = {};
 
     // Serialize attributes
     if (schema.properties.attributes) {
       output.attributes = {};
       Object.keys(schema.properties.attributes.properties).forEach(prop => {
+        if (options.blacklist
+          && options.blacklist.attributes
+          && options.blacklist.attributes.indexOf(prop) >= 0
+        ) { return; }
         const propSchema = schema.properties.attributes.properties[prop];
         output.attributes[prop] = { type: propSchema.type};
       });
@@ -106,6 +131,10 @@ module.exports = class OrbitSchemaFromOpenApi {
     if (schema.properties.relationships) {
       output.relationships = {};
       Object.keys(schema.properties.relationships.properties).forEach(prop => {
+        if (options.blacklist
+          && options.blacklist.relationships
+          && options.blacklist.relationships.indexOf(prop) >= 0
+        ) { return; }
         const propSchema = schema.properties.relationships.properties[prop];
 
         if (propSchema.properties.data.type === 'array') {
@@ -131,19 +160,38 @@ module.exports = class OrbitSchemaFromOpenApi {
 
   /**
    * Processes an OpenApi response into an OrbitJs compliant schema.
-   * @param   {string} body
+   * @param {string} body
    *  OpenApi response body describing a JSON API compliant interface.
-   * @return  {object}
+   * @param {Object} options
+   *  The configuration used to alter the schema output.
+   * @param {object} options.whitelist
+   *  An array of resource types to include.
+   * @param {string[]} options.whitelist.resources
+   *  An array of resource types to be included.
+   * @param {object} options.blacklist
+   *  An array of resource types to be excluded.
+   * @param {string[]} options.blacklist.attributes
+   *  An array of attributes to be excluded.
+   * @param {string[]} options.blacklist.relationships
+   *  An array of relationships to be excluded.
+   * @return {object}
    *  An OrbitJs compliant schema.
    */
-  convertToOrbit(body) {
+  convertToOrbit(body, options) {
     const serialize = this.serialize;
 
     const entities = typeof (body) === 'string' ? JSON.parse(body).definitions : body.definitions;
     const types = Object.keys(entities);
     const orbitSchema = types.reduce((schema, type) => {
+      // Abort if type is not in the whitelist.
+      if (options.whitelist
+        && options.whitelist.resources
+        && options.whitelist.resources.indexOf(type) < 0
+      ) {
+        return schema;
+      }
       const resource = type.replace(':', '--');
-      schema[resource] = serialize(entities[type]);
+      schema[resource] = serialize(entities[type], options);
       return schema;
     }, {});
 
@@ -153,14 +201,4 @@ module.exports = class OrbitSchemaFromOpenApi {
   }
 }
 
-// const testrun = new OrbitSchemaFromOpenApi({
-//   base: process.env.DOMAIN,
-//   oauth: {
-//     grant_type: process.env.GRANT_TYPE,
-//     client_id: process.env.CLIENT_ID,
-//     client_secret: process.env.CLIENT_SECRET,
-//     username: process.env.USER,
-//     password: process.env.PASSWORD
-//   }
-// });
-// testrun.generate().then(testrun.writeToFile('./shema.json'));
+module.exports = OrbitSchemaFromOpenApi;
