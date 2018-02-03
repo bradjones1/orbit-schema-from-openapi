@@ -20,10 +20,25 @@ test('Fetches a schema', (done) => {
       client_id: process.env.CLIENT_ID,
       client_secret: process.env.CLIENT_SECRET,
       username: process.env.USERNAME,
-      password: process.env.PASSWORD
+      password: process.env.PASSWORD,
+    },
+    alterRelationship: (resource, name, relationship) => {
+      let output = {
+        name,
+        relationship
+      };
+      switch (name) {
+        case 'parent':
+          output.relationship.model = resource;
+          break;
+      }
+
+      return output;
     }
   }).generate().then((schema) => {
     expect(schema).toHaveProperty('models');
+    expect(schema.models['taxonomy_term--tag']).toBeInstanceOf(Object);
+    expect(schema.models['taxonomy_term--tag'].relationships.parent.model).toBe('taxonomy_term--tag');
     done();
   });
 

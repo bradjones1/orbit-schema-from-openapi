@@ -32,6 +32,9 @@ class OrbitSchemaFromOpenApi {
    *  An array of attributes to be excluded.
    * @param {string[]} options.blacklist.relationships
    *  An array of relationships to be excluded.
+   * @param {function} options.alterRelationship
+   *  Allows users to alter a relationship. The function should be in the form of
+   * (resource, name, relationship) => ({name, relationship}).
    * @returns {promise}
    *   Returns a promise which resolves to the Orbit complient schema.
    */
@@ -66,6 +69,9 @@ class OrbitSchemaFromOpenApi {
               console.log(error.stack);
             });
         })
+        .catch(error => {
+          console.log(error.stack);
+        });
     })
   }
 
@@ -111,7 +117,7 @@ class OrbitSchemaFromOpenApi {
    * @returns {Object}
    *  OrbitJS compliant model definition of a resource.
    */
-  serialize(schema, options) {
+  serialize(resource, schema, options) {
     let output = {};
 
     // Serialize attributes
@@ -131,26 +137,37 @@ class OrbitSchemaFromOpenApi {
     if (schema.properties.relationships) {
       output.relationships = {};
       Object.keys(schema.properties.relationships.properties).forEach(prop => {
+
+        // Respect blacklisted relationships
         if (options.blacklist
           && options.blacklist.relationships
           && options.blacklist.relationships.indexOf(prop) >= 0
         ) { return; }
+
         const propSchema = schema.properties.relationships.properties[prop];
+        let relationship = {};
 
         if (propSchema.properties.data.type === 'array') {
-          output.relationships[prop] = {
+          relationship = {
             type: 'hasMany',
             // @todo: Load the whole array once Orbit supports polymorphic relationships
             //  see: https://github.com/orbitjs/orbit/issues/475
             model: propSchema.properties.data.items.properties.type.enum[0]
           };
         } else {
-          output.relationships[prop] = {
+          relationship = {
             type: 'hasOne',
             // @todo: Load the whole array once Orbit supports polymorphic relationships
             //  see: https://github.com/orbitjs/orbit/issues/475
             model: propSchema.properties.data.properties.type.enum[0]
           };
+        }
+
+        if (options.alterRelationship) {
+          const altered = options.alterRelationship(resource, prop, relationship);
+          output.relationships[altered.name] = altered.relationship;
+        } else {
+          output.relationships[prop] = relationship;
         }
       });
     }
@@ -191,7 +208,7 @@ class OrbitSchemaFromOpenApi {
         return schema;
       }
       const resource = type.replace(':', '--');
-      schema[resource] = serialize(entities[type], options);
+      schema[resource] = serialize(resource, entities[type], options);
       return schema;
     }, {});
 
