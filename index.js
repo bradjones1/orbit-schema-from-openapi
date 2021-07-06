@@ -121,45 +121,44 @@ class OrbitSchemaFromOpenApi {
     let output = {};
 
     // Serialize attributes
-    if (schema.properties.attributes) {
+    if (schema.properties.data.properties.attributes.properties) {
+      let properties = schema.properties.data.properties.attributes.properties;
       output.attributes = {};
-      Object.keys(schema.properties.attributes.properties).forEach(prop => {
+      Object.keys(properties).forEach(prop => {
         if (options.blacklist
           && options.blacklist.attributes
           && options.blacklist.attributes.indexOf(prop) >= 0
         ) { return; }
-        const propSchema = schema.properties.attributes.properties[prop];
-        output.attributes[prop] = { type: propSchema.type};
+        const propSchema = properties[prop];
+        output.attributes[prop] = {
+          type: propSchema.type === "integer" ? "number" : propSchema.type
+        };
       });
     }
 
     // Serialize relationships
-    if (schema.properties.relationships) {
+    if (schema.properties.data.properties.relationships.properties) {
+      let relationships = schema.properties.data.properties.relationships.properties;
       output.relationships = {};
-      Object.keys(schema.properties.relationships.properties).forEach(prop => {
-
+      Object.keys(relationships).forEach(prop => {
         // Respect blacklisted relationships
         if (options.blacklist
           && options.blacklist.relationships
           && options.blacklist.relationships.indexOf(prop) >= 0
         ) { return; }
 
-        const propSchema = schema.properties.relationships.properties[prop];
+        const propSchema = relationships[prop];
         let relationship = {};
 
         if (propSchema.properties.data.type === 'array') {
           relationship = {
             type: 'hasMany',
-            // @todo: Load the whole array once Orbit supports polymorphic relationships
-            //  see: https://github.com/orbitjs/orbit/issues/475
-            model: propSchema.properties.data.items.properties.type.enum[0]
+            model: propSchema.properties.data.items.properties.type.enum
           };
         } else {
           relationship = {
             type: 'hasOne',
-            // @todo: Load the whole array once Orbit supports polymorphic relationships
-            //  see: https://github.com/orbitjs/orbit/issues/475
-            model: propSchema.properties.data.properties.type.enum[0]
+            model: propSchema.properties.data.properties.type.enum
           };
         }
 
