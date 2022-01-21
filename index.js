@@ -130,6 +130,13 @@ class OrbitSchemaFromOpenApi {
           && options.blacklist.attributes.indexOf(prop) >= 0
         ) { return; }
         const propSchema = properties[prop];
+        if (typeof propSchema === 'array') {
+          propSchema = propSchema.filter(value => value !== 'null');
+          if (propSchema.length > 1) {
+            throw 'Non-null types may not be > 2';
+          }
+          propSchema = propSchema.shift();
+        }
         output.attributes[prop] = {
           type: propSchema.type === "integer" ? "number" : propSchema.type
         };
@@ -153,12 +160,14 @@ class OrbitSchemaFromOpenApi {
         if (propSchema.properties.data.type === 'array') {
           relationship = {
             type: 'hasMany',
-            model: propSchema.properties.data.items.properties.type.enum
+            kind: propSchema.properties.data.items.properties.type.enum
           };
         } else {
           relationship = {
             type: 'hasOne',
-            model: propSchema.properties.data.properties.type.enum
+            kind: (typeof propSchema.properties.data.properties.type.enum === 'undefined')
+              ? []
+              : propSchema.properties.data.properties.type.enum,
           };
         }
 
