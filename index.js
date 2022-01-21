@@ -130,12 +130,12 @@ class OrbitSchemaFromOpenApi {
           && options.blacklist.attributes.indexOf(prop) >= 0
         ) { return; }
         const propSchema = properties[prop];
-        if (typeof propSchema === 'array') {
-          propSchema = propSchema.filter(value => value !== 'null');
-          if (propSchema.length > 1) {
+        if (propSchema.type instanceof Array) {
+          let filtered = propSchema.type.filter(value => value !== 'null');
+          if (filtered.length > 1) {
             throw 'Non-null types may not be > 2';
           }
-          propSchema = propSchema.shift();
+          propSchema.type = filtered.shift();
         }
         output.attributes[prop] = {
           type: propSchema.type === "integer" ? "number" : propSchema.type
