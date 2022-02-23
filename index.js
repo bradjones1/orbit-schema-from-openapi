@@ -165,7 +165,7 @@ class OrbitSchemaFromOpenApi {
         } else {
           relationship = {
             type: 'hasOne',
-            kind: (typeof propSchema.properties.data.properties.type.enum === 'undefined')
+            kind: (typeof propSchema.properties.data?.properties?.type?.enum === 'undefined')
               ? []
               : propSchema.properties.data.properties.type.enum,
           };
