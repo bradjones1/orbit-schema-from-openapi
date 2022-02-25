@@ -157,7 +157,7 @@ class OrbitSchemaFromOpenApi {
         const propSchema = relationships[prop];
         let relationship = {};
 
-        if (propSchema.properties.data.type === 'array') {
+        if (propSchema.properties?.data?.type === 'array') {
           relationship = {
             type: 'hasMany',
             kind: propSchema.properties.data.items.properties.type.enum
@@ -165,7 +165,7 @@ class OrbitSchemaFromOpenApi {
         } else {
           relationship = {
             type: 'hasOne',
-            kind: (typeof propSchema.properties.data?.properties?.type?.enum === 'undefined')
+            kind: (typeof propSchema.properties?.data?.properties?.type?.enum === 'undefined')
               ? []
               : propSchema.properties.data.properties.type.enum,
           };
